@@ -52,6 +52,17 @@ def serialize_data(record):
         "RouterType": record["v.name"]
     }
 
+def serialize_port_data(record):
+    return {
+        "name": record["name"],
+        "className": record["className"],
+        "state": record["p.state"],
+        "ipAddress": record["p.ipAddress"],
+        "interfaceSpeed": record["p.interfaceSpeed"],
+        "interfaceDescription": record["p.interfaceDescription"],
+        "parentAggreagationPort": record["p.parentAggreagationPort"],
+    }
+
 @app.route('/query', methods=['POST'])
 def get_search():
     getQuery = request.json['query']
@@ -63,6 +74,25 @@ def get_search():
 
     return Response(
         dumps([serialize_data(record) for record in results]),
+        mimetype="application/json"
+    )
+
+@app.route('/getPortList', methods=['POST'])
+def get_port_list():
+    className = request.json['className']
+    deviceId = request.json['deviceId']
+    # deviceName = request.json['deviceName']
+    def work(tx,className,deviceId):
+        return list (tx.run("match (c:classes)<-[:INSTANCE_OF]-(d:inventoryObjects)<-[:CHILD_OF]-(p:inventoryObjects)-[:INSTANCE_OF]->(pc:classes) where c.name contains $className and d._uuid = $deviceId return p.name as name,pc.name as className,p.state,p.ipAddress,p.interfaceSpeed,p.interfaceDescription,p.parentAggreagationPort",
+            {"className": className,"deviceId":deviceId}))
+
+
+
+    db = get_db()
+    results = db.read_transaction(work,className,deviceId)
+
+    return Response(
+        dumps([serialize_port_data(record) for record in results]),
         mimetype="application/json"
     )
 
